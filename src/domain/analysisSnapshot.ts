@@ -17,6 +17,7 @@ import {
 } from "./analysisProfile.js";
 import {
   BINARY_ARCHITECTURES,
+  RAW_ONLY_ARCHITECTURES,
   type BinaryTarget,
 } from "./binaryTargetTypes.js";
 import {
@@ -93,7 +94,9 @@ const subjectFormatSchema = z.enum([
 const subjectSchema = z.discriminatedUnion("format", [
   subjectBaseSchema.extend({
     format: subjectFormatSchema.exclude(["raw-binary"]),
-    architecture: architectureSchema.exclude(["6502"]).nullable(),
+    architecture: architectureSchema
+      .exclude([...RAW_ONLY_ARCHITECTURES])
+      .nullable(),
   }),
   subjectBaseSchema.extend({
     format: z.literal("raw-binary"),
@@ -110,7 +113,9 @@ const targetSchema = z.discriminatedUnion("format", [
     format: z.enum(
       formatSchema.options.filter((format) => format !== "raw-binary"),
     ),
-    architecture: architectureSchema.exclude(["6502"]).nullable(),
+    architecture: architectureSchema
+      .exclude([...RAW_ONLY_ARCHITECTURES])
+      .nullable(),
   }),
   targetIdentitySchema
     .extend({
@@ -153,7 +158,7 @@ const entrySchema = z.object({
     raw_result: jsonValueSchema.nullable(),
     provider: committedProviderSchema,
     limitations: z.array(z.string()),
-    relationship_coverage: relationshipCoverageSchema.nullable().default(null),
+    relationship_coverage: relationshipCoverageSchema.nullable(),
     locations: z.array(evidenceLocationSchema),
     subject: subjectSchema.nullable(),
   }),
@@ -168,7 +173,7 @@ const workflowEntrySchema = z.object({
     provider: committedProviderSchema,
     analysis_profile: analysisProfileSchema,
     limitations: z.array(z.string()),
-    relationship_coverage: relationshipCoverageSchema.nullable().default(null),
+    relationship_coverage: relationshipCoverageSchema.nullable(),
     locations: z.array(evidenceLocationSchema),
     subject: subjectSchema.nullable(),
   }),
@@ -313,9 +318,7 @@ const snapshotContentDigest = (
             format: execution.subject.format,
             architecture: execution.subject.architecture,
           },
-    ...(execution.relationship_coverage === null
-      ? {}
-      : { relationship_coverage: execution.relationship_coverage }),
+    relationship_coverage: execution.relationship_coverage,
   });
   return contentDigest({
     ...metadata,
@@ -889,9 +892,7 @@ const evidenceMatchesWorkflowEntry = (
 const evidenceContentMetadata = (evidence: Evidence) => {
   return {
     limitations: evidence.limitations,
-    ...(evidence.relationship_coverage === null
-      ? {}
-      : { relationship_coverage: evidence.relationship_coverage }),
+    relationship_coverage: evidence.relationship_coverage,
     locations: evidence.locations,
     subject:
       evidence.subject === null

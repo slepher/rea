@@ -19,6 +19,11 @@ import { err, type Result } from "../../domain/result.js";
 import type { SessionProviderRoute } from "./SessionProviderRouter.js";
 import { SessionProviderRouter } from "./SessionProviderRouter.js";
 
+/** Read a staged snapshot once the open holds its place in the session order. */
+export type AnalysisSnapshotLoader = () => Promise<
+  Result<AnalysisSnapshot, AnalysisError>
+>;
+
 export interface BinarySessionOpenOptions {
   readonly signal?: AbortSignal;
   readonly targetKind?: BinaryTarget["kind"];
@@ -28,6 +33,11 @@ export interface BinarySessionOpenOptions {
   readonly baseAddress?: string;
   readonly bitWidth?: 32 | 64;
   readonly snapshot?: AnalysisSnapshot;
+  /**
+   * Load the snapshot inside the open's turn instead of before it, so calls
+   * dispatched after the open cannot overtake its file read.
+   */
+  readonly loadSnapshot?: AnalysisSnapshotLoader;
   readonly providerId?: AnalysisProviderSelector;
 }
 

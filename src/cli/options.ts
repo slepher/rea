@@ -1,3 +1,5 @@
+import { z } from "incur";
+
 import {
   executableFormatHintSchema,
   type ExecutableFormatHint,
@@ -9,8 +11,14 @@ import {
 } from "../domain/rawBinary.js";
 import { analysisProviderSelectorSchema } from "../contracts/providerSelection.js";
 import type { AnalysisProviderSelector } from "../contracts/providerSelection.js";
-import { z } from "zod";
 import type { Logger } from "pino";
+
+/** Parse decimal integer tokens before Number coercion can erase their syntax. */
+export const cliIntegerArgument = (min: number) =>
+  z
+    .string()
+    .regex(/^[0-9]+$/u, "Expected a decimal integer")
+    .pipe(z.coerce.number<string>().safe().min(min));
 
 export const providerSelectionOption = analysisProviderSelectorSchema
   .optional()

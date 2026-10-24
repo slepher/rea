@@ -11,6 +11,7 @@ import type { AnalysisProviderSelector } from "../../contracts/providerSelection
 import type { AnalysisError } from "../../domain/analysisErrorBase.js";
 import type { Result } from "../../domain/result.js";
 import type { EvidenceIntegrityError } from "../../domain/evidenceErrors.js";
+import type { AnalysisSnapshotLoader } from "./BinarySessionOpen.js";
 import type { WorkflowSnapshotRecordInput } from "./BinarySessionRecords.js";
 
 import type {
@@ -73,6 +74,7 @@ export interface BinarySessionPort
       readonly baseAddress?: string;
       readonly bitWidth?: 32 | 64;
       readonly snapshot?: AnalysisSnapshot;
+      readonly loadSnapshot?: AnalysisSnapshotLoader;
       readonly providerId?: AnalysisProviderSelector;
     },
   ): Promise<Result<BinaryTarget, AnalysisError>>;
@@ -87,7 +89,7 @@ export interface BinarySessionPort
     overwrite: boolean,
     options?: Pick<ExecutionOptions, "progress">,
   ): Promise<Result<SavedAnalysisSnapshot, AnalysisError>>;
-  status(): JsonValue;
+  status(options?: { readonly signal?: AbortSignal }): Promise<JsonValue>;
   activeTarget(): BinaryTarget | undefined;
   exportAnalysisSnapshot(): Result<AnalysisSnapshot, AnalysisError>;
   importAnalysisSnapshot(
