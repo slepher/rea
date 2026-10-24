@@ -340,8 +340,12 @@ export const attestGhidraRawBinaryLoadImage = (
     return err(
       "Ghidra raw-binary snapshot digest does not match the admitted target",
     );
-  const language = ghidraRawBinaryLanguage(target.architecture);
-  const base = BigInt(target.entryPoint);
+  const language = ghidraRawBinaryLanguage(
+    target.architecture,
+    target.bitWidth,
+  );
+  const baseAddress = target.baseAddress ?? target.entryPoint;
+  const base = BigInt(baseAddress);
   const last = hexAddress(base + BigInt(snapshot.bytes) - 1n);
   const checks: NativeLoadImageCheck[] = [];
   const check = (
@@ -411,7 +415,7 @@ export const attestGhidraRawBinaryLoadImage = (
   );
   check(
     "mapping.start",
-    target.entryPoint,
+    baseAddress,
     mapping?.start ?? null,
     0,
     mapping?.start ?? null,
@@ -446,14 +450,17 @@ export const attestGhidraRawBinaryLoadImage = (
       architecture: target.architecture,
       language_id: language.languageId,
       compiler_spec_id: language.compilerSpecId,
-      base_address: target.entryPoint,
+      base_address: baseAddress,
       file_bytes: snapshot.bytes,
-      entry: { address: target.entryPoint, file_offset: 0 },
+      entry: {
+        address: target.entryPoint,
+        file_offset: Number(BigInt(target.entryPoint) - base),
+      },
       observations,
       checks,
       limitations: [
         "Raw binary is a headerless interpretation explicitly selected by the caller, not format identification from file bytes.",
-        "Verification covers complete original/modified source identity, initialized and loaded non-overlay file bytes in the default address space, the caller-supplied entry, and the bound little-endian Ghidra language. File offset 0 is mapped at the entry address.",
+        "Verification covers complete original/modified source identity, initialized and loaded non-overlay file bytes in the default address space, the caller-supplied entry, and the bound little-endian Ghidra language. File offset 0 is mapped at the selected base address; the entry is independently selected within those bytes.",
         "Ghidra may report additional language-defined external entries outside the mapped image. They are preserved as observations; verification requires the caller-supplied entry and does not attest other entries.",
         "Language-defined uninitialized memory, such as 6502 zero page and stack, is preserved as observations but is not attested as file-backed bytes.",
         "Reset vectors, memory-mapped I/O, big-endian and Thumb-only variants, and runtime boot behavior are not modeled or verified. No original executable bytes are changed.",

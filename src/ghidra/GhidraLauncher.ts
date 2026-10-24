@@ -159,6 +159,7 @@ export interface GhidraHeadlessLauncherOptions {
     readonly languageId: string;
     readonly compilerSpecId: string;
     readonly baseAddr: string;
+    readonly entryPoint?: string;
   };
   /** Explicit import language committed by the analysis profile. */
   readonly languageOverride?: GhidraLanguageOverride;
@@ -543,6 +544,7 @@ export interface GhidraHeadlessArgumentOptions {
     readonly languageId: string;
     readonly compilerSpecId: string;
     readonly baseAddr: string;
+    readonly entryPoint?: string;
   };
   readonly languageOverride?: GhidraLanguageOverride;
   /** Auto-analyzers disabled by the pre-analysis options script. */
@@ -678,6 +680,7 @@ export const ghidraHeadlessArguments = (
           scriptPath.join(bridgeDirectory, "ReaGhidraPrepareRaw.java"),
           rawBinary.languageId,
           rawBinary.baseAddr,
+          rawBinary.entryPoint ?? rawBinary.baseAddr,
         ]),
     // Seeds follow any loader preparation and precede default auto-analysis.
     ...(options.seedPath === undefined

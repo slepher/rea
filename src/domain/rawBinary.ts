@@ -14,6 +14,7 @@ export const BINARY_ARCHITECTURES = [
   "arm",
   "arm64",
   "6502",
+  "riscv",
 ] as const satisfies readonly BinaryArchitecture[];
 
 /** Provider-neutral CPU family for a caller-supplied raw-binary load. */
@@ -21,7 +22,7 @@ export const binaryArchitectureSchema = z.enum(BINARY_ARCHITECTURES);
 
 const RAW_BINARY_ENTRY_POINT = /^0x[0-9A-Fa-f]{1,16}$/u;
 
-/** Hexadecimal load and entry address; file offset 0 is mapped here. */
+/** Hexadecimal code entry or mapping base address. */
 export const rawBinaryEntryPointSchema = z
   .string()
   .regex(RAW_BINARY_ENTRY_POINT, {
@@ -59,9 +60,11 @@ export const validateRawBinaryLength = (
 
 /** Admitted headerless load identity used by target resolution and profiles. */
 export interface RawBinaryAdmission {
-  readonly architecture: HeaderArchitecture | "6502";
+  readonly architecture: HeaderArchitecture | "6502" | "riscv";
   readonly entryPoint: string;
   readonly entryPointSource: string;
+  readonly baseAddress?: string;
+  readonly bitWidth?: 32 | 64;
 }
 
 /** Why a headerless load was refused, with its owning classification. */
@@ -85,19 +88,31 @@ const addressWidth = (architecture: BinaryArchitecture): bigint =>
 export const admitRawBinary = (input: {
   readonly architecture: unknown;
   readonly entryPoint: unknown;
+  readonly baseAddress?: unknown;
+  readonly bitWidth?: unknown;
   readonly fileBytes: number;
 }): Result<RawBinaryAdmission, RawBinaryAdmissionRejection> => {
   const architecture = binaryArchitectureSchema.safeParse(input.architecture);
   if (!architecture.success)
     return err({
       reason:
-        "raw-binary format requires architecture (x86, x86_64, arm, arm64, or 6502)",
+        "raw-binary format requires architecture (x86, x86_64, arm, arm64, 6502, or riscv)",
       constraint: "load_selection_rejected",
     });
   if (typeof input.entryPoint !== "string")
     return err({
       reason:
         "raw-binary format requires entry_point as a hexadecimal address of the form 0x…",
+      constraint: "load_selection_rejected",
+    });
+  if (
+    architecture.data === "riscv"
+      ? input.bitWidth !== 32 && input.bitWidth !== 64
+      : input.bitWidth !== undefined
+  )
+    return err({
+      reason:
+        "bit_width must be 32 or 64 for riscv and omitted for other architectures",
       constraint: "load_selection_rejected",
     });
   const entry = parseRawBinaryEntryPoint(input.entryPoint);
@@ -120,14 +135,45 @@ export const admitRawBinary = (input: {
       reason: length.error,
       constraint: "file_format_rejected",
     });
-  const last = entry.value.value + BigInt(input.fileBytes) - 1n;
-  const max = addressWidth(architecture.data);
-  if (entry.value.value > max || last > max)
+  const base = parseRawBinaryEntryPoint(
+    input.baseAddress === undefined
+      ? input.entryPoint
+      : typeof input.baseAddress === "string"
+        ? input.baseAddress
+        : "",
+  );
+  if (!base.ok)
     return err({
-      reason: `raw-binary mapping from ${entry.value.canonical} must fit in the ${architecture.data} address width`,
+      reason: "base_address must be a hexadecimal address of the form 0x…",
+      constraint: "load_selection_rejected",
+    });
+  if (architecture.data === "riscv" && entry.value.value % 2n !== 0n)
+    return err({
+      reason: "raw-binary riscv entry_point must be 2-byte aligned",
+      constraint: "load_selection_rejected",
+    });
+  const last = base.value.value + BigInt(input.fileBytes) - 1n;
+  const max =
+    architecture.data === "riscv" && input.bitWidth === 32
+      ? 0xffffffffn
+      : addressWidth(architecture.data);
+  if (base.value.value > max || last > max)
+    return err({
+      reason: `raw-binary mapping from ${base.value.canonical} must fit in the ${architecture.data} address width`,
+      constraint: "load_selection_rejected",
+    });
+  if (entry.value.value < base.value.value || entry.value.value > last)
+    return err({
+      reason: "entry_point must lie within the file-backed mapping",
       constraint: "load_selection_rejected",
     });
   return ok({
+    ...(base.value.canonical === entry.value.canonical
+      ? {}
+      : { baseAddress: base.value.canonical }),
+    ...(input.bitWidth === 32 || input.bitWidth === 64
+      ? { bitWidth: input.bitWidth }
+      : {}),
     architecture: architecture.data,
     entryPoint: entry.value.canonical,
     entryPointSource: entry.value.source,
@@ -139,14 +185,24 @@ export const rawBinarySelectionError = (input: {
   readonly format?: ExecutableFormatHint;
   readonly architecture?: unknown;
   readonly entryPoint?: unknown;
+  readonly baseAddress?: unknown;
+  readonly bitWidth?: unknown;
 }): string | undefined => {
   const hasArchitecture = input.architecture !== undefined;
   const hasEntry = input.entryPoint !== undefined;
   if (input.format === "raw-binary") {
     if (!hasArchitecture || !hasEntry)
       return "format=raw-binary requires architecture and entry_point";
+    if (
+      input.architecture === "riscv"
+        ? input.bitWidth !== 32 && input.bitWidth !== 64
+        : input.bitWidth !== undefined
+    )
+      return "bit_width must be 32 or 64 for riscv and omitted for other architectures";
     return undefined;
   }
+  if (input.baseAddress !== undefined || input.bitWidth !== undefined)
+    return "base_address and bit_width apply only with format=raw-binary";
   if (hasArchitecture || hasEntry)
     return "architecture and entry_point apply only with format=raw-binary";
   return undefined;

@@ -402,3 +402,31 @@ it.skipIf(process.platform !== "win32")(
     expect(calls).toEqual(["address_name"]);
   },
 );
+
+it.each([32, 64])(
+  "carries raw RV%i width and independent base through MCP",
+  async (bitWidth) => {
+    const root = await createTestTempDirectory("rea-riscv-mcp-");
+    const path = join(root, "image.bin");
+    await writeFile(path, Buffer.from("00001305000067800000", "hex"));
+    const { client } = await connect();
+    const opened = await client.callTool({
+      name: "open_binary",
+      arguments: {
+        path,
+        format: "raw-binary",
+        architecture: "riscv",
+        bit_width: bitWidth,
+        base_address: "0x01000",
+        entry_point: "0x1002",
+      },
+    });
+    expect(opened.isError).not.toBe(true);
+    expect(structured(opened).result).toMatchObject({
+      architecture: "riscv",
+      bit_width: bitWidth,
+      base_address: "0x1000",
+      entry_point: "0x1002",
+    });
+  },
+);

@@ -112,12 +112,20 @@ const targetSchema = z.discriminatedUnion("format", [
     ),
     architecture: architectureSchema.exclude(["6502"]).nullable(),
   }),
-  targetIdentitySchema.extend({
-    format: z.literal("raw-binary"),
-    kind: z.literal("executable"),
-    architecture: binaryArchitectureSchema,
-    entry_point: rawBinaryEntryPointSchema,
-  }),
+  targetIdentitySchema
+    .extend({
+      format: z.literal("raw-binary"),
+      kind: z.literal("executable"),
+      architecture: binaryArchitectureSchema,
+      base_address: rawBinaryEntryPointSchema.optional(),
+      bit_width: z.union([z.literal(32), z.literal(64)]).optional(),
+      entry_point: rawBinaryEntryPointSchema,
+    })
+    .transform(({ base_address, bit_width, ...identity }) => ({
+      ...identity,
+      ...(base_address === undefined ? {} : { base_address }),
+      ...(bit_width === undefined ? {} : { bit_width }),
+    })),
 ]);
 const bindingSchema = z
   .object({
@@ -356,6 +364,12 @@ export const snapshotTarget = (target: BinaryTarget): AnalysisSnapshotTarget =>
         architecture: target.architecture,
         format: target.format,
         entry_point: target.entryPoint,
+        ...(target.baseAddress === undefined
+          ? {}
+          : { base_address: target.baseAddress }),
+        ...(target.bitWidth === undefined
+          ? {}
+          : { bit_width: target.bitWidth }),
       }
     : {
         sha256: target.sha256,
@@ -384,6 +398,9 @@ export const snapshotMatchesTarget = (
   snapshot.architecture === (target.architecture ?? null) &&
   (snapshot.format !== "raw-binary" ||
     (target.format === "raw-binary" &&
+      (snapshot.base_address ?? snapshot.entry_point) ===
+        (target.baseAddress ?? target.entryPoint) &&
+      snapshot.bit_width === target.bitWidth &&
       snapshot.entry_point === target.entryPoint));
 
 /** Compare a snapshot binding with the selected concrete analysis profile. */

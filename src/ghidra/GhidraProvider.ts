@@ -349,7 +349,18 @@ const inspectWindowsP0TargetSupport = (
   target: BinaryTarget,
   diagnostics: Readonly<Record<string, JsonValue>>,
 ): ProviderTargetSupport => {
-  // The raw 6502 lane uses the same immutable snapshot and native ownership boundary.
+  // Raw imports retain the same immutable snapshot and native ownership boundary.
+  if (target.format === "raw-binary" && target.architecture === "riscv") {
+    const reason = ghidraProcessorUnsupportedReason(target);
+    return reason === null
+      ? { status: "supported", code: null, reason: null, diagnostics }
+      : {
+          status: "unsupported",
+          code: "architecture_unsupported",
+          reason,
+          diagnostics,
+        };
+  }
   if (target.format === "raw-binary" && target.architecture === "6502")
     return { status: "supported", code: null, reason: null, diagnostics };
   if (target.format !== "pe")
@@ -357,7 +368,7 @@ const inspectWindowsP0TargetSupport = (
       status: "unsupported",
       code: "target_format_unsupported",
       reason:
-        "Windows Ghidra P0 accepts native PE and explicitly selected raw 6502 targets only.",
+        "Windows Ghidra P0 accepts native PE and explicitly selected raw 6502 or RV32/RV64 RISC-V targets only.",
       diagnostics,
     };
   if (target.architecture !== "x86" && target.architecture !== "x86_64")

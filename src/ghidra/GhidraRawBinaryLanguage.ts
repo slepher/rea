@@ -15,8 +15,17 @@ export interface GhidraRawBinaryLanguage {
  */
 export const ghidraRawBinaryLanguage = (
   architecture: RawBinaryAdmission["architecture"],
+  bitWidth?: 32 | 64,
 ): GhidraRawBinaryLanguage => {
   switch (architecture) {
+    case "riscv":
+      if (bitWidth !== 32 && bitWidth !== 64)
+        throw new Error("RISC-V raw binary requires an explicit bit width");
+      return {
+        languageId: `RISCV:LE:${bitWidth}:default`,
+        compilerSpecId: "gcc",
+        defaultAddressSpace: "ram",
+      };
     case "6502":
       return {
         languageId: "6502:LE:16:default",

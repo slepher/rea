@@ -147,6 +147,7 @@ describe("Ghidra raw-binary loader", () => {
     );
     expect(arguments_[prepare + 2]).toBe("ARM:LE:32:v7");
     expect(arguments_[prepare + 3]).toBe("0x8000000");
+    expect(arguments_[prepare + 4]).toBe("0x8000000");
     expect(prepare).toBeLessThan(arguments_.indexOf("-postScript"));
     expect(arguments_).toContain("-readOnly");
     expect(arguments_).toContain("-deleteProject");

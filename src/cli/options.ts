@@ -9,6 +9,7 @@ import {
 } from "../domain/rawBinary.js";
 import { analysisProviderSelectorSchema } from "../contracts/providerSelection.js";
 import type { AnalysisProviderSelector } from "../contracts/providerSelection.js";
+import { z } from "zod";
 import type { Logger } from "pino";
 
 export const providerSelectionOption = analysisProviderSelectorSchema
@@ -33,7 +34,7 @@ export const architectureSelectionOption = binaryArchitectureSchema
 export const entryPointSelectionOption = rawBinaryEntryPointSchema
   .optional()
   .describe(
-    "Caller-supplied load and entry address (0xhex); required with --target-format raw-binary",
+    "Caller-supplied code entry address (0xhex); required with --target-format raw-binary",
   );
 
 /** Shared CLI flags that bind a native target interpretation. */
@@ -41,6 +42,14 @@ export const nativeOpenOptionFields = {
   "target-format": formatSelectionOption,
   architecture: architectureSelectionOption,
   "entry-point": entryPointSelectionOption,
+  "base-address": rawBinaryEntryPointSchema
+    .optional()
+    .describe("Raw file offset 0 load address; defaults to entry-point"),
+  "bit-width": z.coerce
+    .number()
+    .pipe(z.union([z.literal(32), z.literal(64)]))
+    .optional()
+    .describe("Required for raw riscv: 32 or 64"),
   provider: providerSelectionOption,
 };
 
@@ -51,6 +60,8 @@ export interface NativeOpenCliFlags {
   readonly "target-format"?: ExecutableFormatHint | undefined;
   readonly architecture?: BinaryArchitecture | undefined;
   readonly "entry-point"?: string | undefined;
+  readonly "base-address"?: string | undefined;
+  readonly "bit-width"?: 32 | 64 | undefined;
 }
 
 export const directAnalysisOptions = (
@@ -60,9 +71,13 @@ export const directAnalysisOptions = (
   formatHint?: ExecutableFormatHint,
   architecture?: BinaryArchitecture,
   entryPoint?: string,
+  baseAddress?: string,
+  bitWidth?: 32 | 64,
 ) => ({
   logger,
   snapshotPath,
+  ...(baseAddress === undefined ? {} : { baseAddress }),
+  ...(bitWidth === undefined ? {} : { bitWidth }),
   ...(formatHint === undefined ? {} : { formatHint }),
   ...(architecture === undefined ? {} : { architecture }),
   ...(entryPoint === undefined ? {} : { entryPoint }),
@@ -81,4 +96,6 @@ export const directAnalysisOptionsFromCli = (
     options["target-format"],
     options.architecture,
     options["entry-point"],
+    options["base-address"],
+    options["bit-width"],
   );

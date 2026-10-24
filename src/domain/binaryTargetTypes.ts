@@ -180,16 +180,15 @@ export type BinaryTarget =
   | (BinaryTargetIdentity & {
       readonly kind: "executable";
       readonly format: "raw-binary";
-      readonly architecture: Exclude<
-        BinaryArchitecture,
-        ElfMetadataArchitecture
-      >;
+      readonly architecture: Exclude<BinaryArchitecture, "mips" | "powerpc">;
       readonly availableArchitectures: readonly Exclude<
         BinaryArchitecture,
-        ElfMetadataArchitecture
+        "mips" | "powerpc"
       >[];
       readonly entryPoint: string;
       readonly entryPointSource: string;
+      readonly baseAddress?: string;
+      readonly bitWidth?: 32 | 64;
       readonly executableRole?: never;
       readonly managed?: never;
     })

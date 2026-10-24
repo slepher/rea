@@ -18,15 +18,16 @@ additional permission flag or degraded mode is required.
 - an operator-installed Ghidra 12.1.x distribution (verified with 12.1.4);
 - a 64-bit full JDK inside that installation's declared Java range (JDK 21 or newer, with no maximum, for current 12.1 releases);
 - an explicit native, non-managed x86 or x86-64 PE application/DLL, or a
-  [raw NMOS 6502 image](raw-binary.md#nmos-6502) with a caller-supplied entry; and
+  [raw NMOS 6502 or RV32/RV64 RISC-V image](raw-binary.md) with a caller-supplied entry
+  (RISC-V also requires explicit `bit_width`); and
 - the 26 read-only Ghidra inventory, memory, and function-analysis operations.
 
 Loaded memory reads and file offsets preserve Ghidra's observed source mappings.
 PE load-image inspection returns an explicit unsupported attestation status.
 Independent verification covers admitted DOS MZ, explicit COM, and explicit
 [raw-binary imports](raw-binary.md) on their supported hosts, including the
-admitted raw NMOS 6502 mapping on Windows. Windows P0 admission remains limited
-to native PE and raw NMOS 6502 images. For x64 PE
+admitted raw NMOS 6502 and RISC-V mappings on Windows. Windows P0 admission remains limited
+to native PE and these explicit raw images. For x64 PE
 NativeAOT RTR 9.1, the read-only snapshot parser can report metadata through
 `inspect_native_load_image` and `inspect_native_data_type` without a JAR or
 database mutation: MethodTable relationships, virtual slots and frozen strings.
@@ -44,6 +45,10 @@ requirements. The complete image must fit in the 16-bit address space; no
 console-specific cartridge loader, CPU variant, or bank-switching model is
 implied. Run `npm run verify:ghidra:6502` with caller-installed `ca65`/`ld65`
 to check the source-built fixture through real CLI and MCP workflows.
+
+Run `npm run verify:ghidra:riscv-raw` with Windows `JAVA_HOME` and
+`GHIDRA_INSTALL_DIR` to verify RV32/RV64 CLI and MCP mappings, decompilation,
+references, immutable source bytes, and runtime cleanup without WSL.
 
 REA does not install or upgrade Ghidra, Java, Python, npm, Node.js, Hopper, or a
 compiler. The adapter uses the packaged Java `HeadlessScript`; Python and

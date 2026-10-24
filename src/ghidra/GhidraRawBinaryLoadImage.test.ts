@@ -234,3 +234,38 @@ describe("raw-binary independent load-image checks", () => {
     ).toBe(false);
   });
 });
+
+it.each([32, 64] as const)(
+  "attests RV%i base and entry independently",
+  (bitWidth) => {
+    const f = fixtureRawBinaryLoadImage();
+    const target = {
+      ...f.target,
+      architecture: "riscv" as const,
+      availableArchitectures: ["riscv" as const],
+      bitWidth,
+      baseAddress: "0x8000000",
+      entryPoint: "0x8000002",
+    };
+    f.observation.language_id = `RISCV:LE:${bitWidth}:default`;
+    f.observation.compiler_spec_id = "gcc";
+    f.observation.entry_points = [target.entryPoint];
+    expect(ghidraRawBinaryLanguage("riscv", bitWidth).languageId).toBe(
+      f.observation.language_id,
+    );
+    expect(
+      attestGhidraRawBinaryLoadImage(f.snapshot, target, f.observation),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        status: "verified",
+        base_address: target.baseAddress,
+        entry: { address: target.entryPoint, file_offset: 2 },
+      },
+    });
+    f.observation.entry_points = [target.baseAddress];
+    expect(
+      attestGhidraRawBinaryLoadImage(f.snapshot, target, f.observation),
+    ).toMatchObject({ ok: true, value: { status: "mismatch" } });
+  },
+);

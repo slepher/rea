@@ -193,3 +193,75 @@ describe("raw-binary selection pairing", () => {
     ).toBe("architecture and entry_point apply only with format=raw-binary");
   });
 });
+
+describe("RISC-V raw load selection", () => {
+  it.each([32, 64] as const)(
+    "admits RV%i with independent base and compressed-aligned entry",
+    (bitWidth) => {
+      expect(
+        admitRawBinary({
+          architecture: "riscv",
+          bitWidth,
+          baseAddress: "0x09ffff000",
+          entryPoint: "0xa0000002",
+          fileBytes: 0x1010,
+        }),
+      ).toMatchObject({
+        ok: true,
+        value: {
+          architecture: "riscv",
+          bitWidth,
+          baseAddress: "0x9ffff000",
+          entryPoint: "0xa0000002",
+        },
+      });
+    },
+  );
+  it.each([
+    { bitWidth: undefined },
+    { bitWidth: 16 },
+    { bitWidth: "32" },
+    { entryPoint: "0x1001" },
+    { entryPoint: "0xffe" },
+    { entryPoint: "0x1004" },
+    { baseAddress: "0xfffffffe", entryPoint: "0xfffffffe" },
+    {
+      baseAddress: "0xffffffffffffffff",
+      entryPoint: "0xffffffffffffffff",
+      bitWidth: 64,
+    },
+    { baseAddress: "garbage" },
+    { fileBytes: 0 },
+  ])("refuses invalid selection %j", (overrides) => {
+    expect(
+      admitRawBinary({
+        architecture: "riscv",
+        bitWidth: 32,
+        baseAddress: "0x1000",
+        entryPoint: "0x1002",
+        fileBytes: 4,
+        ...overrides,
+      }).ok,
+    ).toBe(false);
+  });
+  it("requires explicit width and rejects width on other families or non-raw input", () => {
+    expect(
+      rawBinarySelectionError({
+        format: "raw-binary",
+        architecture: "riscv",
+        entryPoint: "0x0",
+      }),
+    ).toContain("bit_width");
+    expect(
+      admitRawBinary({
+        architecture: "arm",
+        bitWidth: 32,
+        entryPoint: "0x0",
+        fileBytes: 4,
+      }).ok,
+    ).toBe(false);
+    expect(rawBinarySelectionError({ baseAddress: "0x0" })).toContain(
+      "raw-binary",
+    );
+  });
+});

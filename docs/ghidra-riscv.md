@@ -12,7 +12,8 @@ target also retains the raw ELF declarations that decide a lane: class, byte
 order, `e_type`, and `e_flags`. Recognition does not mean every provider or
 RISC-V variant is supported. Existing PE, managed and Mach-O architecture sets
 are unchanged. Headerless inputs use the separate [raw-binary admission
-boundary](raw-binary.md); raw RISC-V images are not supported.
+boundary](raw-binary.md), requiring an explicit 32/64-bit selection
+and preserving unknown ABI rather than synthesizing ELF declarations.
 
 The Ghidra lane admits little-endian ELF32 and ELF64 `ET_EXEC` images that
 declare `EF_RISCV_FLOAT_ABI_DOUBLE` in `e_flags`, with no `EF_RISCV_RVE`,

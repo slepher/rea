@@ -25,6 +25,8 @@ export interface BinarySessionOpenOptions {
   readonly formatHint?: ExecutableFormatHint;
   readonly architecture?: BinaryArchitecture;
   readonly entryPoint?: string;
+  readonly baseAddress?: string;
+  readonly bitWidth?: 32 | 64;
   readonly snapshot?: AnalysisSnapshot;
   readonly providerId?: AnalysisProviderSelector;
 }
@@ -81,6 +83,10 @@ export const resolveSessionOpen = async (
     ...(options.entryPoint === undefined
       ? {}
       : { entryPoint: options.entryPoint }),
+    ...(options.baseAddress === undefined
+      ? {}
+      : { baseAddress: options.baseAddress }),
+    ...(options.bitWidth === undefined ? {} : { bitWidth: options.bitWidth }),
     ...(options.signal === undefined ? {} : { signal: options.signal }),
   });
   if (!parsed.ok) return parsed;

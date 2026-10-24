@@ -199,6 +199,51 @@ describe("Ghidra provider", () => {
 });
 
 describe("Ghidra raw-binary profile", () => {
+  it.each([32, 64] as const)(
+    "admits Windows RV%i raw imports without mutation authority",
+    async (bitWidth) => {
+      const ghidra = provider(installationHost("win32"));
+      const target: BinaryTarget = {
+        path: "C:/fixture.bin",
+        entryPointSource: "0xa0000000",
+        sha256: "a".repeat(64),
+        kind: "executable",
+        format: "raw-binary",
+        architecture: "riscv",
+        availableArchitectures: ["riscv"],
+        bitWidth,
+        baseAddress: "0x9ffff000",
+        entryPoint: "0xa0000000",
+      };
+      expect(ghidra.inspectTargetSupport(target).status).toBe("supported");
+      expect(
+        ghidra.inspectTargetSupport(
+          Object.fromEntries(
+            Object.entries(target).filter(([key]) => key !== "bitWidth"),
+          ) as BinaryTarget,
+        ),
+      ).toMatchObject({
+        status: "unsupported",
+        code: "architecture_unsupported",
+      });
+      const resolved = await ghidra.resolveAnalysisProfile(target);
+      if (!resolved.ok) throw resolved.error;
+      expect(resolved.value.profile?.parameters).toMatchObject({
+        language_id: `RISCV:LE:${bitWidth}:default`,
+        bit_width: bitWidth,
+        base_address: "0x9ffff000",
+        entry_point: "0xa0000000",
+        no_return_repair: "disabled-windows-p0",
+      });
+      expect(
+        ghidra
+          .capabilities()
+          .some(
+            ({ available, effects }) => available && effects.mutatesArtifact,
+          ),
+      ).toBe(false);
+    },
+  );
   it("admits raw 6502 on Windows and binds its 16-bit language without mutation authority", async () => {
     const ghidra = provider(installationHost("win32"));
     const target: BinaryTarget = {

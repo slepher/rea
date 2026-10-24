@@ -25,9 +25,10 @@ rea inspect-native-load-image /absolute/path/to/ecu.bin --target-format raw-bina
 }
 ```
 
-`architecture` is one of `x86`, `x86_64`, `arm`, `arm64`, or `6502`. `entry_point` is a
+`architecture` is one of `x86`, `x86_64`, `arm`, `arm64`, `6502`, or `riscv`. `entry_point` is a
 hexadecimal address of the form `0x…`. The complete file is mapped starting at
-that address, and Ghidra seeds an `entry` function there before auto-analysis.
+`base_address` (defaults to `entry_point`), and Ghidra seeds an `entry` function
+at `entry_point` before auto-analysis. The entry must be within the mapped file.
 ARM and AArch64 entries must be 4-byte aligned; x86 and 6502 entries may be byte-aligned.
 For 6502, the entry and complete mapped file must fit within `0x0000..0xffff`;
 images that cross the 16-bit boundary are rejected before provider startup.
@@ -53,7 +54,7 @@ provide a compiler specification named `default`.
 
 Those settings, the caller-supplied entry, and `language_selection:
 caller-supplied-v1` are committed in the analysis profile. A different entry
-or architecture is a different profile; snapshots from header-detected targets
+or architecture, RISC-V bit width, or mapping base is a different profile; snapshots from header-detected targets
 do not replay.
 
 The mapped start is independent of Ghidra's program image base, which remains
@@ -71,7 +72,7 @@ non-overlay in the bound language's default address space. Contradictory mapping
 observations are retained with `mismatch`, even when the source hashes agree.
 
 Hopper and IDA refuse raw-binary targets. Windows Ghidra P0 admits native PE
-applications/DLLs and explicitly selected raw 6502 images. Other raw CPU families
+applications/DLLs and explicitly selected raw 6502 or RV32/RV64 RISC-V images. Other raw CPU families
 remain outside the Windows boundary. Native path admission, private DACLs, Job
 Object ownership, immutable snapshots, and the no-mutation policy still apply.
 
@@ -117,3 +118,36 @@ Windows run.
 - Independent load-image verification covers source identity, mapped file
   bytes, the bound language, and the caller-supplied entry. Original bytes
   stay unchanged.
+
+## RISC-V raw images
+
+Select `architecture=riscv` and explicitly supply `bit_width=32` or `64`.
+REA pins `RISCV:LE:32:default` or `RISCV:LE:64:default` with compiler spec `gcc`.
+Width is never guessed from addresses or bytes. Other architectures reject
+`bit_width`. Entries must be 2-byte aligned (compressed instructions are allowed),
+and the complete mapping must fit the selected address width.
+
+```bash
+rea inspect-native-load-image /absolute/path/firmware.bin --target-format raw-binary --architecture riscv --bit-width 32 --base-address 0x9ffff000 --entry-point 0xa0000000 --provider ghidra --json
+```
+
+The corresponding `open_binary` MCP arguments are `format: "raw-binary"`,
+`architecture: "riscv"`, `bit_width: 32`, `base_address: "0x9ffff000"`, and
+`entry_point: "0xa0000000"`, together with the absolute `path`. File offset zero
+maps at the base; offset `0x1000` is the code entry. Both values participate in
+profile/snapshot identity. Equivalent hexadecimal spellings retain reuse.
+Omitting the base preserves the existing base-equals-entry behavior.
+
+The original ABI is unknown. The generic `gcc` compiler convention does not
+establish floating-point parameter recovery, vendor/custom instruction semantics,
+or boot behavior. ELF admission and its ABI requirements remain unchanged.
+Windows x64 supports this raw lane with the matching package-owned native addon,
+private NTFS runtime, and Job Object ownership. Database mutation remains unavailable.
+RISC-V ELF admission on Windows remains unsupported.
+
+After `npm run build:cached`, run `node scripts/verify-real-ghidra-riscv-raw.mjs`
+with BYO `GHIDRA_INSTALL_DIR` and a full JDK21+ via `JAVA_HOME`. It generates
+source-owned standard RV32/RV64 instructions (no target execution), checks real
+CLI/MCP mapping, calls, global references, pseudocode, canonical reuse, source
+immutability and owned cleanup. The source is
+`tests/conformance/ghidra/riscv-raw-fixture.mjs`; no private firmware is required.

@@ -222,6 +222,12 @@ const registerOpenLifecycleTool = (
           ...(input.architecture === undefined
             ? {}
             : { architecture: input.architecture }),
+          ...(input.base_address === undefined
+            ? {}
+            : { baseAddress: input.base_address }),
+          ...(input.bit_width === undefined
+            ? {}
+            : { bitWidth: input.bit_width }),
           ...(input.entry_point === undefined
             ? {}
             : { entryPoint: input.entry_point }),

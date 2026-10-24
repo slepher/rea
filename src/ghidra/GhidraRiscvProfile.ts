@@ -46,9 +46,13 @@ export const ghidraRiscvUnsupportedReason = (
 ): string | null => {
   if (target.kind !== "executable" || target.architecture !== "riscv")
     return null;
-  const metadata = target.riscv;
+  if (target.format === "raw-binary")
+    return target.bitWidth === 32 || target.bitWidth === 64
+      ? null
+      : "RISC-V raw binary requires bit_width 32 or 64.";
   if (target.format !== "elf")
     return "RISC-V analysis requires ELF header metadata; a family name alone does not select an ISA or ABI.";
+  const metadata = target.riscv;
   if (metadata.byteOrder !== "little")
     return "This Ghidra RISC-V lane supports little-endian images only; Ghidra 12.1.4 ships no big-endian RISC-V language.";
   if (metadata.elfClass !== 32 && metadata.elfClass !== 64)
@@ -82,6 +86,7 @@ export const ghidraRiscvLanguageOverride = (
 ): GhidraLanguageOverride | undefined =>
   target.kind === "executable" &&
   target.architecture === "riscv" &&
+  target.format === "elf" &&
   ghidraRiscvUnsupportedReason(target) === null
     ? {
         languageId: `RISCV:LE:${target.riscv.elfClass}:default`,
@@ -95,6 +100,7 @@ export const ghidraRiscvProfileParameters = (
 ): Readonly<Record<string, JsonValue>> =>
   target.kind === "executable" &&
   target.architecture === "riscv" &&
+  target.format === "elf" &&
   target.riscv !== undefined
     ? {
         riscv_elf: {
@@ -120,10 +126,18 @@ export const ghidraRiscvProfileParameters = (
 export const ghidraRiscvLimitations = (
   target: BinaryTarget,
 ): readonly string[] =>
-  target.kind === "executable" && target.architecture === "riscv"
+  target.kind === "executable" &&
+  target.architecture === "riscv" &&
+  target.format === "raw-binary"
     ? [
-        `RISC-V ELF: REA pins Ghidra's generic \`RISCV:LE:${target.riscv.elfClass}:default\` language with the \`gcc\` compiler specification instead of accepting the loader's header-based choice, which selects \`RISCV:LE:32:AndeStar_v5\` for ordinary RV32 images on Ghidra 12.1.4.`,
-        "The pinned generic language models the double-float ABI declared by `e_flags`; the declaration is recorded as an ELF fact and is not evidence of the original compiler or of verified instruction semantics.",
-        "Admission reads `e_type` only: a fixed-address ET_EXEC declaration does not establish static linkage, and program headers (`PT_INTERP`, dynamic dependencies) are not inspected by this lane.",
+        "RISC-V raw binary uses the caller-selected little-endian generic model and gcc compiler specification. The original ABI is unknown; floating-point parameter recovery and vendor instructions are not verified.",
       ]
-    : [];
+    : target.kind === "executable" &&
+        target.architecture === "riscv" &&
+        target.format === "elf"
+      ? [
+          `RISC-V ELF: REA pins Ghidra's generic \`RISCV:LE:${target.riscv.elfClass}:default\` language with the \`gcc\` compiler specification instead of accepting the loader's header-based choice, which selects \`RISCV:LE:32:AndeStar_v5\` for ordinary RV32 images on Ghidra 12.1.4.`,
+          "The pinned generic language models the double-float ABI declared by `e_flags`; the declaration is recorded as an ELF fact and is not evidence of the original compiler or of verified instruction semantics.",
+          "Admission reads `e_type` only: a fixed-address ET_EXEC declaration does not establish static linkage, and program headers (`PT_INTERP`, dynamic dependencies) are not inspected by this lane.",
+        ]
+      : [];

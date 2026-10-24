@@ -46,13 +46,24 @@ export const openBinaryInputSchema = z
     entry_point: rawBinaryEntryPointSchema
       .optional()
       .describe(
-        "Caller-supplied load and entry address (0xhex). File offset 0 is mapped here. Required with format=raw-binary; rejected otherwise.",
+        "Caller-supplied code entry address (0xhex). File offset 0 maps here unless base_address is supplied. Required with format=raw-binary; rejected otherwise.",
       ),
+    base_address: rawBinaryEntryPointSchema
+      .optional()
+      .describe("Raw file offset 0 load address; defaults to entry_point."),
+    bit_width: z
+      .union([z.literal(32), z.literal(64)])
+      .optional()
+      .describe("Required for raw riscv; omitted for other architectures."),
     provider_id: analysisProviderSelectorSchema.optional(),
     snapshot_path: snapshotPathSchema.optional(),
   })
   .superRefine((value, context) => {
     const pairing = rawBinarySelectionError({
+      ...(value.base_address === undefined
+        ? {}
+        : { baseAddress: value.base_address }),
+      ...(value.bit_width === undefined ? {} : { bitWidth: value.bit_width }),
       ...(value.format === undefined ? {} : { format: value.format }),
       ...(value.architecture === undefined
         ? {}
@@ -68,10 +79,16 @@ export const openBinaryInputSchema = z
         value.format === "raw-binary"
           ? value.architecture === undefined
             ? ["architecture"]
-            : ["entry_point"]
-          : value.architecture === undefined
-            ? ["entry_point"]
-            : ["architecture"],
+            : value.entry_point === undefined
+              ? ["entry_point"]
+              : ["bit_width"]
+          : value.base_address !== undefined
+            ? ["base_address"]
+            : value.bit_width !== undefined
+              ? ["bit_width"]
+              : value.architecture !== undefined
+                ? ["architecture"]
+                : ["entry_point"],
       message: pairing,
     });
   });

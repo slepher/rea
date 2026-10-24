@@ -528,3 +528,26 @@ describe("analysis snapshot Evidence binding", () => {
     }
   });
 });
+
+it("invalidates raw snapshots when RISC-V width or base changes", () => {
+  const target: BinaryTarget = {
+    path: "/fixture/raw.bin",
+    sha256: "a".repeat(64),
+    kind: "executable",
+    format: "raw-binary",
+    architecture: "riscv",
+    availableArchitectures: ["riscv"],
+    bitWidth: 32,
+    baseAddress: "0x1000",
+    entryPoint: "0x1002",
+    entryPointSource: "0x1002",
+  };
+  const snapshot = snapshotTarget(target);
+  expect(snapshotMatchesTarget(snapshot, target)).toBe(true);
+  expect(
+    snapshotMatchesTarget(snapshot, { ...target, bitWidth: 64 as const }),
+  ).toBe(false);
+  expect(
+    snapshotMatchesTarget(snapshot, { ...target, baseAddress: "0x1002" }),
+  ).toBe(false);
+});

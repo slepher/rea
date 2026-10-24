@@ -472,8 +472,10 @@ const rawLifecycleTargetSchema = z.object({
   format: z.literal("raw-binary"),
   kind: z.literal("executable"),
   architecture: binaryArchitectureSchema,
+  base_address: rawBinaryEntryPointSchema.optional(),
+  bit_width: z.union([z.literal(32), z.literal(64)]).optional(),
   entry_point: rawBinaryEntryPointSchema.describe(
-    "Canonical caller-selected address where raw file offset 0 is mapped and execution is seeded.",
+    "Canonical caller-selected code entry address within the raw file mapping.",
   ),
 });
 

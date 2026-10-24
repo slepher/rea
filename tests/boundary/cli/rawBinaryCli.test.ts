@@ -131,3 +131,35 @@ cliTest(
     );
   },
 );
+
+cliTest(
+  "passes raw RISC-V width and base through the CLI before rejecting an out-of-mapping entry",
+  async ({ cli }) => {
+    const root = await createTestTempDirectory("rea-riscv-cli-");
+    const path = join(root, "image.bin");
+    await writeFile(path, Buffer.from("1305000067800000", "hex"));
+    const result = await cli.run({
+      arguments: [
+        "inspect",
+        path,
+        "--target-format",
+        "raw-binary",
+        "--architecture",
+        "riscv",
+        "--bit-width",
+        "32",
+        "--base-address",
+        "0x1000",
+        "--entry-point",
+        "0x2000",
+        "--json",
+      ],
+      environment: { HOME: root, XDG_CONFIG_HOME: root, XDG_CACHE_HOME: root },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.json).toMatchObject({
+      code: "invalid_request",
+      details: { reason: expect.stringContaining("file-backed mapping") },
+    });
+  },
+);
